@@ -6,6 +6,7 @@ Este repositorio junta dos cosas:
 
 - `ACurso-PYTORCH/`: el curso de PyTorch tal como vino (teoría en PDF y notebooks por sección).
 - `doctorado/`: notebooks que toman lo del curso y lo llevan al problema de la tesis. El índice está en [`doctorado/README.md`](doctorado/README.md).
+- `links.docx`: material teórico de apoyo (artículos, tutoriales y cursos) con una descripción de cada enlace. Está resumido en la [sección 9](#9-material-teórico-de-apoyo).
 
 En este README va la teoría que conecta las dos partes. En el curso aprendimos a clasificar imágenes con redes convolucionales (MNIST, CIFAR-10, LeNet-5). En la tesis la entrada no es una imagen: es un conjunto de átomos con posiciones continuas en 3D. Abajo explico qué parte de la CNN sobrevive, qué parte hay que cambiar y por qué.
 
@@ -65,7 +66,9 @@ $$
 y(\mathbf{p}) = \sum_{\boldsymbol{\delta} \in K} W_{\boldsymbol{\delta}} \, x(\mathbf{p} + \boldsymbol{\delta})
 $$
 
-donde $K$ es el conjunto de desplazamientos del kernel (por ejemplo, los 9 de un 3×3) y hay **un peso distinto $W_{\boldsymbol{\delta}}$ para cada desplazamiento**. Eso funciona porque los desplazamientos son un conjunto finito y fijo.
+donde $K$ es el conjunto de desplazamientos del kernel (por ejemplo, los 9 de un 3×3) y hay **un peso distinto $W_{\boldsymbol{\delta}}$ para cada desplazamiento**. Eso funciona porque los desplazamientos son un conjunto finito y fijo. Estrictamente, con $+\boldsymbol{\delta}$ esto es una correlación cruzada y no una convolución matemática (que usaría $-\boldsymbol{\delta}$); es lo que calcula `nn.Conv2d`, y como los pesos se aprenden la diferencia no importa ([CS231n][cs231n]; [D2L][d2l-pad]).
+
+Las tres ideas que hacen funcionar a la CNN desde LeNet-5 ([LeCun et al., 1998][lecun98]) son: **conectividad local** (cada salida mira una ventana chica), **pesos compartidos** (el mismo filtro en todas las posiciones) y **submuestreo** (pooling) para ir ganando campo receptivo. Las tres se pueden reescribir para puntos.
 
 En una nube, los vecinos de un átomo $i$ están en desplazamientos continuos $\mathbf{p}_j - \mathbf{p}_i$ que cambian de átomo en átomo. No se puede tener una tabla de pesos indexada por desplazamiento. Entonces el peso se reemplaza por una **función aprendida del desplazamiento**, y la suma por una **agregación simétrica**:
 
@@ -99,7 +102,7 @@ $$
 \mathbf{g} = \max_{i} \mathbf{y}_i \quad \text{o} \quad \mathbf{g} = \frac{1}{N} \sum_i \mathbf{y}_i
 $$
 
-Esto da un vector de tamaño fijo, invariante por permutación, que después va a un MLP de salida como en la CNN. El resultado teórico que respalda esta idea (Deep Sets, Zaheer et al. 2017) dice que toda función continua e invariante por permutación sobre conjuntos se puede escribir como $\rho\big(\sum_i \phi(\mathbf{x}_i)\big)$.
+Esto da un vector de tamaño fijo, invariante por permutación, que después va a un MLP de salida como en la CNN. El resultado teórico que respalda esta idea (Deep Sets, Zaheer et al. 2017) dice que toda función invariante por permutación sobre conjuntos se puede escribir como $\rho\big(\sum_i \phi(\mathbf{x}_i)\big)$. La demostración es exacta para elementos de un dominio numerable; para coordenadas continuas vale con la condición de que la dimensión del espacio latente de $\phi$ sea al menos el tamaño del conjunto (Wagstaff et al., 2019). En la práctica se usan muchos canales (cientos) y el pooling se aplica sobre vecindarios chicos, así que la condición no es una limitación real acá.
 
 ### 3.4 Padding → máscara de relleno
 
@@ -109,7 +112,7 @@ Para armar un batch, PyTorch necesita tensores rectangulares `[B, N, C]`, pero c
 - el kNN las excluye con una máscara;
 - la media global solo promedia sobre puntos reales.
 
-En la CNN, el `padding=2` de una convolución es parte del modelo. Acá el relleno es un artefacto del batching y no puede filtrarse a la salida. La condición que se exige es que **la predicción de un parche no dependa de con qué otros parches comparte el batch**.
+En la CNN, el `padding=2` de una convolución es parte del modelo: fija el tamaño de salida, $\lfloor (n - k + 2p)/s \rfloor + 1$ para entrada $n$, kernel $k$, padding $p$ y stride $s$, y permite que los píxeles del borde pesen tanto como los del centro ([D2L][d2l-pad]; [deeplizard][deeplizard-pad]; [CS231n][cs231n]). Con $k = 5$ y $p = 2$ la imagen conserva su tamaño (padding *same*). Acá el relleno es un artefacto del batching y no puede filtrarse a la salida. La condición que se exige es que **la predicción de un parche no dependa de con qué otros parches comparte el batch**.
 
 ### 3.5 Data augmentation → simetrías del cristal
 
@@ -143,7 +146,7 @@ Las dos están reimplementadas en PyTorch puro, porque las versiones oficiales d
 PointNeXt (Qian et al., NeurIPS 2022) es PointNet++ con el entrenamiento y el escalado modernizados. Su estructura se parece a LeNet-5:
 
 1. una etapa de entrada que lleva cada átomo a un vector de rasgos;
-2. varias etapas de *set abstraction* (FPS + kNN + MLP + max), cada una con menos puntos y más canales, como las capas conv + pool;
+2. varias etapas de *set abstraction* (FPS + agrupamiento de vecinos + MLP + max), cada una con menos puntos y más canales, como las capas conv + pool. PointNet++ y PointNeXt agrupan por radio (*ball query*), que es lo análogo a un kernel de tamaño físico fijo; kNN es la alternativa que garantiza la misma cantidad de vecinos por punto;
 3. bloques residuales (InvResMLP) dentro de cada etapa, con la misma idea que una ResNet;
 4. pooling global y un MLP final.
 
@@ -156,8 +159,13 @@ Para **ubicar** las vacancias hace falta una predicción por punto, como en la s
 - Cada punto se cuantiza en una grilla y se ordena según una **curva de llenado del espacio** (z-order o Hilbert). Estas curvas recorren el espacio 3D de modo que puntos cercanos en la curva suelen estar cerca en el espacio.
 - La nube pasa a ser una **secuencia 1D**. Se corta en parches de K puntos consecutivos y la atención se calcula dentro de cada parche. Es como una convolución sobre una secuencia, pero con pesos dinámicos (atención) en lugar de fijos.
 - Entre bloques se rota el tipo de curva (z, Hilbert y sus versiones transpuestas), para que los bordes de parche caigan en lugares distintos y la información circule.
-- Antes de cada atención va un **CPE** (codificación posicional condicional): una convolución puntual sobre kNN que inyecta la geometría local.
+- Antes de cada atención va un **CPE** (codificación posicional condicional) que inyecta la geometría local. En el PTv3 original es una convolución dispersa (spconv) sobre la grilla; en la reimplementación sin GPU se reemplaza por una convolución puntual sobre kNN, que cumple la misma función.
+- Que la nube se vuelva una secuencia hace pensar en una RNN (Secciones 13–14), que recorre la secuencia guardando un estado oculto ([Karpathy, 2015][karpathy-rnn]). PTv3 usa atención por parches en cambio: procesa los K puntos de un parche en paralelo y no sufre el gradiente que se desvanece en secuencias largas.
 - El encoder submuestrea con grid pooling (stride 2) y el decoder vuelve a la resolución original con conexiones *skip*, igual que una U-Net.
+
+### Entrenamiento
+
+Las dos redes se entrenan igual que en el curso: se calcula la pérdida, `loss.backward()` obtiene los gradientes por retropropagación (la regla de la cadena aplicada capa por capa, [Mazur, 2015][mazur-bp]) y el optimizador actualiza los pesos. Las corridas usan tasa de aprendizaje $10^{-3}$ y *weight decay* 0.05 ([`metrics.json`](resultados/runs/)). Adam ([Kingma & Ba, 2014][adam]) ajusta el paso de cada parámetro con medias móviles del gradiente y de su cuadrado, y por eso tolera mejor que SGD las escalas distintas de los rasgos.
 
 ### El truco de los sitios candidatos (pipeline B)
 
@@ -222,7 +230,7 @@ La línea punteada de la segunda figura es la línea de base medida en test. Sir
 
 ### Lectura
 
-**A no supera a las líneas de base.** PointNeXt queda por debajo de las dos tablas en el total y es peor justamente donde está la dificultad: la forma conexa (0.694 contra 0.806) y 600 K. La curva de validación es inestable (cae a 0.29 en la época 4 y oscila entre 0.6 y 0.87). El modelo guardado es el de la mejor época en validación. La regresión de un escalar por cluster, sin información explícita de dónde está cada hueco, no alcanza para separar vacancias contiguas.
+**A no supera a las líneas de base.** PointNeXt queda por debajo de las dos tablas en el total y es peor justamente donde está la dificultad: la forma conexa (0.694 contra 0.806) y 600 K. La curva de validación es inestable (cae a 0.29 en la época 4 y oscila entre 0.6 y 0.87) mientras la pérdida de entrenamiento baja de forma monótona. Esa brecha variable entre entrenamiento y validación es un síntoma de varianza alta en el sentido del compromiso sesgo–varianza ([AprendeIA][sesgo-varianza]): el modelo depende mucho de los detalles del lote y de la época. El modelo guardado es el de la mejor época en validación, que es una forma de *early stopping*. La regresión de un escalar por cluster, sin información explícita de dónde está cada hueco, no alcanza para separar vacancias contiguas.
 
 **El 100 % de B hay que leerlo con cuidado.** Dos razones:
 
@@ -242,14 +250,50 @@ Por eso este resultado vale como **validación sobre Ni FCC ideal**, no como val
 
 ## 8. Recorrido sugerido
 
-| Paso | Dónde | Qué se aprende |
-|---|---|---|
-| 1 | `ACurso-PYTORCH/Section 4` + `doctorado/01` | Tensores; una red FCC con vacancia como `pos`, `edge_index` y rasgos |
-| 2 | `Section 7–9` + `doctorado/02` | Bucle de entrenamiento y regresión; MLP con descriptores locales como línea de base |
-| 3 | `Section 10` + `doctorado/03` | Hiperparámetros, validación cruzada agrupada, checkpoints |
-| 4 | `Section 11–12` | Convolución, pooling, flatten: lo que este README traduce a nubes |
-| 5 | `Section 15` | Data augmentation y transfer learning: base para las simetrías de Oh |
-| 6 | PointNeXt / PTv3 | Las redes de nubes descritas en las secciones 3 y 4 |
+| Paso | Dónde | Qué se aprende | Lectura de apoyo |
+|---|---|---|---|
+| 1 | `ACurso-PYTORCH/Section 4` + `doctorado/01` | Tensores; una red FCC con vacancia como `pos`, `edge_index` y rasgos | [Tutoriales de PyTorch][pytorch-tut] |
+| 2 | `Section 7–9` + `doctorado/02` | Bucle de entrenamiento y regresión; MLP con descriptores locales como línea de base | [Playground][playground], [regresión desde cero][lope-reg], [backprop][mazur-bp], [Adam][adam] |
+| 3 | `Section 10` + `doctorado/03` | Hiperparámetros, validación cruzada agrupada, checkpoints | [Sesgo y varianza][sesgo-varianza], [optimización numérica][frederickson] |
+| 4 | `Section 11–12` | Convolución, pooling, flatten: lo que este README traduce a nubes | [CS231n][cs231n], [D2L][d2l-pad], [LeNet-5][lecun98] |
+| 5 | `Section 13–14` | Redes recurrentes: estado oculto, LSTM | [Karpathy][karpathy-rnn], [RNN a mano][byhand-rnn] |
+| 6 | `Section 15` | Data augmentation y transfer learning: base para las simetrías de Oh | |
+| 7 | PointNeXt / PTv3 | Las redes de nubes descritas en las secciones 3 y 4 | Ver [Referencias](#referencias) |
+
+---
+
+## 9. Material teórico de apoyo
+
+Resumen de [`links.docx`](links.docx), donde cada enlace tiene una descripción más larga. Están ordenados según el recorrido del curso.
+
+**Cursos y datos**
+
+- [Curso de Machine Learning con Python][castillo-ml] y [Deep Learning con Python y Keras][castillo-dl] (Manuel Castillo; [índice][castillo]): cursos completos que sirven de guía para las Secciones 1–15.
+- [UCI Machine Learning Repository][uci] y [lista de datasets de Dataquest][dataquest]: datos públicos para practicar.
+- [Tutorial de pandas][pandas]: preparar tablas antes de pasarlas a tensores.
+- [Tutoriales oficiales de PyTorch][pytorch-tut]: tensores, autograd, `nn.Module`, `DataLoader`.
+
+**Fundamentos y entrenamiento**
+
+- [Sesgo y varianza][sesgo-varianza]: subajuste vs. sobreajuste y cómo leer las curvas de entrenamiento y validación.
+- [Optimización numérica interactiva][frederickson]: descenso por gradiente, gradiente conjugado y BFGS, visualizados.
+- [TensorFlow Playground][playground]: una red densa chica que se entrena en el navegador.
+- [Regresión lineal multivariada desde cero][lope-reg]: MSE y descenso por gradiente con NumPy, lo que después hace autograd.
+- [Retropropagación paso a paso][mazur-bp]: la regla de la cadena con números concretos en una red 2–2–2.
+- [Adam][adam]: el artículo original del optimizador.
+
+**Redes convolucionales**
+
+- [CS231n][cs231n]: la referencia principal sobre convolución, campo receptivo, pooling y arquitecturas.
+- [Introducción visual a las CNN][aigents].
+- [Padding y stride en D2L][d2l-pad], [zero padding en deeplizard][deeplizard-pad] y [padding en GeeksforGeeks][gfg-pad]: tamaño de salida y tratamiento de bordes.
+- [LeCun et al., 1998][lecun98]: el artículo de LeNet-5.
+
+**Redes recurrentes**
+
+- [Introducción a las RNN (Towards Data Science)][tds-rnn]: estado oculto, retropropagación en el tiempo, gradiente que se desvanece.
+- [Karpathy, *The Unreasonable Effectiveness of RNNs*][karpathy-rnn]: qué aprende una LSTM sobre texto.
+- [RNN en una planilla][byhand-sheet] y [RNN a mano][byhand-rnn] (AI by Hand): cada cuenta de una RNN, paso a paso.
 
 ---
 
@@ -261,4 +305,34 @@ Por eso este resultado vale como **validación sobre Ni FCC ideal**, no como val
 - Qian et al., *PointNeXt: Revisiting PointNet++ with Improved Training and Scaling Strategies*, NeurIPS 2022.
 - Wu et al., *Point Transformer V3: Simpler, Faster, Stronger*, CVPR 2024.
 - Ronneberger et al., *U-Net*, MICCAI 2015.
-- LeCun et al., *Gradient-based learning applied to document recognition* (LeNet-5), Proc. IEEE 1998.
+- LeCun et al., *Gradient-based learning applied to document recognition* (LeNet-5), Proc. IEEE 86(11), 1998. [IEEE][lecun98]
+- Kingma, Ba, *Adam: A Method for Stochastic Optimization*, ICLR 2015. [arXiv:1412.6980][adam]
+- Wagstaff et al., *On the Limitations of Representing Functions on Sets*, ICML 2019. [arXiv:1901.09006](https://arxiv.org/abs/1901.09006)
+- Zhang, Lipton, Li, Smola, *Dive into Deep Learning*, sección "Padding and Stride". [d2l.ai][d2l-pad]
+- Stanford CS231n, *Convolutional Neural Networks for Visual Recognition*, notas del curso. [cs231n.github.io][cs231n]
+- Karpathy, *The Unreasonable Effectiveness of Recurrent Neural Networks*, 2015. [blog][karpathy-rnn]
+- Mazur, *A Step by Step Backpropagation Example*, 2015. [blog][mazur-bp]
+
+[castillo]: https://www.manuelcastillo.eu/udemy/
+[castillo-ml]: https://www.manuelcastillo.eu/udemy/Curso-Machine-Learning-Python/
+[castillo-dl]: https://www.manuelcastillo.eu/udemy/Curso-Deep-Learning-Python-Keras/
+[uci]: https://archive.ics.uci.edu/
+[dataquest]: https://www.dataquest.io/blog/free-datasets-for-projects/
+[pandas]: https://www.listendata.com/2017/12/python-pandas-tutorial.html
+[pytorch-tut]: https://docs.pytorch.org/tutorials/index.html
+[sesgo-varianza]: https://aprendeia.com/2018/11/09/bias-y-varianza-en-machine-learning/
+[frederickson]: https://www.benfrederickson.com/numerical-optimization/
+[playground]: https://playground.tensorflow.org/
+[adam]: https://arxiv.org/abs/1412.6980
+[lope-reg]: https://medium.com/@lope.ai/multivariate-linear-regression-from-scratch-in-python-5c4f219be6a
+[mazur-bp]: https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example/
+[aigents]: https://aigents.co/learn/How-do-convolutional-neural-networks-work
+[deeplizard-pad]: https://deeplizard.com/learn/video/qSTv_m-KFk0
+[d2l-pad]: https://d2l.ai/chapter_convolutional-neural-networks/padding-and-strides.html
+[gfg-pad]: https://www.geeksforgeeks.org/machine-learning/cnn-introduction-to-padding/
+[lecun98]: https://ieeexplore.ieee.org/abstract/document/726791
+[cs231n]: https://cs231n.github.io/convolutional-networks/
+[tds-rnn]: https://towardsdatascience.com/recurrent-neural-networks-d4642c9bc7ce/
+[karpathy-rnn]: https://karpathy.github.io/2015/05/21/rnn-effectiveness/
+[byhand-sheet]: https://www.byhand.ai/p/recurrent-neural-network-spreadsheet
+[byhand-rnn]: https://www.byhand.ai/p/2-can-you-calculate-an-rnn-by-hand
