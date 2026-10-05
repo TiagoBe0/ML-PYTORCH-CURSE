@@ -1,0 +1,69 @@
+parches train/val/test: [5409, 1220, 1112]  n: {0: 998, 1: 5096, 2: 587, 3: 360, 4: 350, 5: 350}
+modelo PTv3Seg: 1.88 M parámetros
+ep   0 train 0.1774 | val loss 0.0070 cluster 0.948 frame 0.884 F1 0.970 | 469s
+ep   1 train 0.0063 | val loss 0.0016 cluster 0.996 frame 0.991 F1 0.994 | 395s
+ep   2 train 0.0075 | val loss 0.0014 cluster 1.000 frame 1.000 F1 0.996 | 328s
+ep   3 train 0.0021 | val loss 0.0028 cluster 0.987 frame 0.971 F1 0.991 | 336s
+ep   4 train 0.0024 | val loss 0.0063 cluster 0.991 frame 0.980 F1 0.991 | 362s
+ep   5 train 0.0023 | val loss 0.0014 cluster 0.994 frame 0.987 F1 0.994 | 337s
+ep   6 train 0.0016 | val loss 0.0017 cluster 0.999 frame 0.998 F1 0.996 | 336s
+ep   7 train 0.0014 | val loss 0.0017 cluster 0.998 frame 0.996 F1 0.976 | 332s
+ep   8 train 0.0014 | val loss 0.0013 cluster 1.000 frame 1.000 F1 0.996 | 335s
+ep   9 train 0.0037 | val loss 0.0011 cluster 0.999 frame 0.998 F1 0.996 | 341s
+ep  10 train 0.0011 | val loss 0.0013 cluster 0.998 frame 0.996 F1 0.996 | 342s
+ep  11 train 0.0015 | val loss 0.0010 cluster 1.000 frame 1.000 F1 0.996 | 337s
+ep  12 train 0.0012 | val loss 0.0015 cluster 0.999 frame 0.998 F1 0.991 | 334s
+ep  13 train 0.0011 | val loss 0.0011 cluster 0.999 frame 0.998 F1 0.997 | 338s
+ep  14 train 0.0012 | val loss 0.0011 cluster 0.999 frame 0.998 F1 0.997 | 341s
+ep  15 train 0.0010 | val loss 0.0013 cluster 0.997 frame 0.993 F1 0.995 | 342s
+ep  16 train 0.0010 | val loss 0.0010 cluster 0.999 frame 0.998 F1 0.997 | 341s
+ep  17 train 0.0007 | val loss 0.0008 cluster 0.999 frame 0.998 F1 0.998 | 345s
+ep  18 train 0.0005 | val loss 0.0007 cluster 0.999 frame 0.998 F1 0.998 | 339s
+ep  19 train 0.0005 | val loss 0.0004 cluster 1.000 frame 1.000 F1 0.996 | 342s
+ep  20 train 0.0005 | val loss 0.0002 cluster 1.000 frame 1.000 F1 0.999 | 240s
+ep  21 train 0.0003 | val loss 0.0002 cluster 1.000 frame 1.000 F1 0.999 | 184s
+ep  22 train 0.0002 | val loss 0.0002 cluster 1.000 frame 1.000 F1 0.999 | 186s
+ep  23 train 0.0003 | val loss 0.0002 cluster 1.000 frame 1.000 F1 0.999 | 186s
+ep  24 train 0.0003 | val loss 0.0002 cluster 1.000 frame 1.000 F1 0.999 | 186s
+{
+  "test": {
+    "loss": 0.00033701848230326245,
+    "cluster_acc": 1.0,
+    "cluster_mae": 0.0,
+    "frame": {
+      "acc": 1.0,
+      "acc_T_0K": 1.0,
+      "acc_T_300K": 1.0,
+      "acc_T_600K": 1.0,
+      "acc_forma_mono": 1.0,
+      "acc_forma_conexa": 1.0,
+      "acc_forma_dispersa": 1.0
+    },
+    "precision": 0.9979879275653923,
+    "recall": 0.9986577181208054,
+    "auc": 0.9999998219504891,
+    "ap": 0.9999856417097966,
+    "f1": 0.9983227104998322
+  },
+  "baseline_test": {
+    "cluster_acc": 0.9649280575539568,
+    "frame_suma_clusters": {
+      "acc": 0.9215291750503019,
+      "acc_T_0K": 0.9295774647887324,
+      "acc_T_300K": 0.9154929577464789,
+      "acc_T_600K": 0.9248826291079812,
+      "acc_forma_mono": 1.0,
+      "acc_forma_conexa": 0.8061224489795918,
+      "acc_forma_dispersa": 0.9948979591836735
+    },
+    "frame_tabla_README": {
+      "acc": 0.8873239436619719,
+      "acc_T_0K": 0.9295774647887324,
+      "acc_T_300K": 0.9154929577464789,
+      "acc_T_600K": 0.8450704225352113,
+      "acc_forma_mono": 0.9809523809523809,
+      "acc_forma_conexa": 0.7602040816326531,
+      "acc_forma_dispersa": 0.9642857142857143
+    }
+  }
+}

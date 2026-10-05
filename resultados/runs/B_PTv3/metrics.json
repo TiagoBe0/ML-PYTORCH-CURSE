@@ -1,0 +1,74 @@
+{
+  "args": {
+    "pipeline": "B",
+    "npz": "/home/santi/Documentos/ML-Vacancies/datos/db_1a5_Ni.npz",
+    "epochs": "25",
+    "bs": "16",
+    "lr": "0.001",
+    "wd": "0.05",
+    "pos_weight": "5.0",
+    "threads": "10",
+    "seed": "0",
+    "max_train": "0",
+    "out": "None"
+  },
+  "val": {
+    "loss": 0.0001856409866135224,
+    "cluster_acc": 1.0,
+    "cluster_mae": 0.0,
+    "frame": {
+      "acc": 1.0,
+      "acc_T_0K": 1.0,
+      "acc_T_300K": 1.0,
+      "acc_T_600K": 1.0,
+      "acc_forma_mono": 1.0,
+      "acc_forma_conexa": 1.0,
+      "acc_forma_dispersa": 1.0
+    },
+    "precision": 0.9982238010657194,
+    "recall": 0.999407231772377,
+    "auc": 0.9999999265504357,
+    "ap": 0.9999940735061587,
+    "f1": 0.9988151658767773
+  },
+  "test": {
+    "loss": 0.00033701848230326245,
+    "cluster_acc": 1.0,
+    "cluster_mae": 0.0,
+    "frame": {
+      "acc": 1.0,
+      "acc_T_0K": 1.0,
+      "acc_T_300K": 1.0,
+      "acc_T_600K": 1.0,
+      "acc_forma_mono": 1.0,
+      "acc_forma_conexa": 1.0,
+      "acc_forma_dispersa": 1.0
+    },
+    "precision": 0.9979879275653923,
+    "recall": 0.9986577181208054,
+    "auc": 0.9999998219504891,
+    "ap": 0.9999856417097966,
+    "f1": 0.9983227104998322
+  },
+  "baseline_test": {
+    "cluster_acc": 0.9649280575539568,
+    "frame_suma_clusters": {
+      "acc": 0.9215291750503019,
+      "acc_T_0K": 0.9295774647887324,
+      "acc_T_300K": 0.9154929577464789,
+      "acc_T_600K": 0.9248826291079812,
+      "acc_forma_mono": 1.0,
+      "acc_forma_conexa": 0.8061224489795918,
+      "acc_forma_dispersa": 0.9948979591836735
+    },
+    "frame_tabla_README": {
+      "acc": 0.8873239436619719,
+      "acc_T_0K": 0.9295774647887324,
+      "acc_T_300K": 0.9154929577464789,
+      "acc_T_600K": 0.8450704225352113,
+      "acc_forma_mono": 0.9809523809523809,
+      "acc_forma_conexa": 0.7602040816326531,
+      "acc_forma_dispersa": 0.9642857142857143
+    }
+  }
+}

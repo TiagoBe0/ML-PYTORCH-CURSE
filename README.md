@@ -192,11 +192,55 @@ El split train/val/test (70/15/15) se hace **por configuración**, no por frame.
 - **Por frame:** proporción de cajas cuyo conteo total sale exacto, desglosada por temperatura y por forma del defecto (monovacancia, conexa, dispersa).
 - **Pipeline B:** además precision, recall, F1, AUC y AP por candidato.
 
-**La línea de base a superar** es una tabla de consulta que mapea "cantidad de átomos de baja coordinación" → "cantidad de vacancias". Sin aprendizaje, acierta el conteo exacto en el **0.883** de los frames de test. Un modelo que no la supere no aporta nada. La parte difícil es la temperatura alta: a 600 K la agitación térmica genera átomos de baja coordinación que no tienen nada que ver con vacancias, y los clusters de vacancias además migran.
+**Las líneas de base** son tablas de consulta que mapean "cantidad de átomos de baja coordinación" → "cantidad de vacancias", sin aprendizaje. Hay dos versiones:
+
+- **por frame**: una sola tabla sobre la caja entera. Acierta el conteo exacto en el 0.887 de los frames de test;
+- **por cluster**: la tabla se aplica a cada cluster y se suman los resultados. Acierta el **0.922**.
+
+La vara a superar es la segunda, 0.922. Un modelo que no la supere no aporta nada. La parte difícil es la temperatura alta y la forma conexa: a 600 K la agitación térmica genera átomos de baja coordinación que no tienen nada que ver con vacancias, y los clusters de vacancias además migran.
 
 ---
 
-## 7. Recorrido sugerido
+## 7. Resultados
+
+Corridas sobre la base completa (1500 configuraciones, 3500 frames), semilla 0, en CPU. Hay 5409, 1220 y 1112 parches en train, val y test. Las métricas y los logs están en [`resultados/runs/`](resultados/runs/) y las figuras se regeneran con `python resultados/graficas.py`.
+
+| Conteo exacto por frame (test) | Total | 0 K | 300 K | 600 K | Mono | Conexa | Dispersa |
+|---|---|---|---|---|---|---|---|
+| Tabla por frame | 0.887 | 0.930 | 0.915 | 0.845 | 0.981 | 0.760 | 0.964 |
+| Tabla por cluster | 0.922 | 0.930 | 0.915 | 0.925 | 1.000 | 0.806 | 0.995 |
+| A · PointNeXt (0.99 M parámetros, 40 épocas) | 0.875 | 0.944 | 0.887 | 0.840 | 1.000 | 0.694 | 0.990 |
+| B · PTv3 (1.88 M parámetros, 25 épocas) | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+
+B además da, por candidato en test: precision 0.998, recall 0.999 y F1 0.998.
+
+![Test por temperatura y forma](resultados/figuras/barras_test.png)
+
+![Curvas de entrenamiento](resultados/figuras/curvas_entrenamiento.png)
+
+La línea punteada de la segunda figura es la línea de base medida en test. Sirve de referencia, pero las curvas son de validación.
+
+### Lectura
+
+**A no supera a las líneas de base.** PointNeXt queda por debajo de las dos tablas en el total y es peor justamente donde está la dificultad: la forma conexa (0.694 contra 0.806) y 600 K. La curva de validación es inestable (cae a 0.29 en la época 4 y oscila entre 0.6 y 0.87). El modelo guardado es el de la mejor época en validación. La regresión de un escalar por cluster, sin información explícita de dónde está cada hueco, no alcanza para separar vacancias contiguas.
+
+**El 100 % de B hay que leerlo con cuidado.** Dos razones:
+
+1. **La tarea puede ser casi trivial por construcción.** Un candidato vacío es, por definición, un sitio sin ningún átomo a menos de ~1 Å. Una regla tan simple como "¿hay un átomo encima de este candidato?" podría dar el mismo resultado. Que B llegue a 1.000 en la época 2 apunta en esa dirección. El número muestra que el pipeline de candidatos funciona, no que la red haya aprendido la geometría del defecto.
+2. **Los candidatos usan una referencia débil.** Se reconstruyen con $a = L/8$, es decir, suponiendo el parámetro de red del cristal perfecto y la caja alineada con los ejes. En una HEA deformada o en una nanopartícula irradiada ese supuesto se rompe. En ese régimen está la motivación de la tesis.
+
+Por eso este resultado vale como **validación sobre Ni FCC ideal**, no como validación del método.
+
+### Próximos pasos
+
+- Comparar B contra la regla trivial "candidato sin átomo a menos de 1 Å". Si la regla también da 1.000, B no está aportando nada.
+- Repetir con varias semillas para medir la varianza. Hoy hay una sola corrida por modelo.
+- Probar en configuraciones donde $a = L/8$ no vale: deformación, HEA, superficies libres.
+- Para A, darle información local de los huecos (por ejemplo, los candidatos como rasgo) y ver si mejora en la forma conexa.
+
+---
+
+## 8. Recorrido sugerido
 
 | Paso | Dónde | Qué se aprende |
 |---|---|---|
